@@ -1,0 +1,53 @@
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, classification_report
+
+train_data = pd.read_csv('/content/train_data.txt', sep=' ::: ', engine='python', header=None, names=['Index', 'Title', 'Genre', 'Plot'])
+
+test_data = pd.read_csv('/content/test_data.txt', sep=' ::: ', engine='python', header=None, names=['Index', 'Title', 'Plot'])
+
+test_solutions = pd.read_csv('/content/test_data_solution.txt', sep=' ::: ', engine='python', header=None, names=['Index', 'Title', 'Genre', 'Plot'])
+
+test_data['Genre'] = test_solutions['Genre']
+
+X = train_data['Plot']
+y = train_data['Genre']
+
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Convert text data into TF-IDF features
+vectorizer = TfidfVectorizer(stop_words='english', max_features=5000)
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_val_tfidf = vectorizer.transform(X_val)
+
+
+# Train the model
+model = MultinomialNB()
+model.fit(X_train_tfidf, y_train)
+
+
+# Function to predict genre from plot summary
+def predict_genre(plot_summary):
+    plot_summary_tfidf = vectorizer.transform([plot_summary])
+    predicted_genre = model.predict(plot_summary_tfidf)
+    return predicted_genre[0]
+
+# List of test plots
+test_plots = [
+    "A group of astronauts travel to a distant planet where they discover a hostile alien species that threatens the survival of humanity.",
+    "In a small town, a local detective teams up with a rookie FBI agent to solve a series of mysterious disappearances.",
+    "Two childhood friends reunite after many years and fall in love, but they must overcome various obstacles to be together.",
+    "During World War II, a group of soldiers embark on a dangerous mission behind enemy lines to retrieve a crucial piece of intelligence.",
+    "A young girl discovers a magical portal to a hidden world where she befriends mystical creatures and embarks on an epic quest to save their land."
+]
+
+
+# Predict genres for test plots
+for plot in test_plots:
+    predicted_genre = predict_genre(plot)
+    print(f'Plot: {plot}')
+    print(f'Predicted Genre: {predicted_genre}\n')
+
