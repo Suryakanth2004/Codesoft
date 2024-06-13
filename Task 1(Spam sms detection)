@@ -1,0 +1,72 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+import re
+import joblib
+
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+# Load the dataset
+df = pd.read_csv('spam.csv', encoding='latin-1')
+
+df = df.rename(columns={"v1": "label", "v2": "message"})
+
+df = df[['label', 'message']]
+
+lemmatizer = WordNetLemmatizer()
+stop_words = set(stopwords.words('english'))
+
+# Function to preprocess text
+def preprocess_text(text):
+    # Remove non-alphabetic characters
+    text = re.sub(r'[^a-zA-Z]', ' ', text)
+    # Convert to lowercase
+    text = text.lower()
+    # Tokenize and remove stop words, then lemmatize
+    words = text.split()
+    words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
+    return ' '.join(words)
+
+df['message'] = df['message'].apply(preprocess_text)
+
+# Split the dataset into training and testing sets
+X = df['message']
+y = df['label'].map({'ham': 0, 'spam': 1})
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+tfidf_vectorizer = TfidfVectorizer(max_features=5000)
+X_train_tfidf = tfidf_vectorizer.fit_transform(X_train)
+X_test_tfidf = tfidf_vectorizer.transform(X_test)
+
+nb_model = MultinomialNB()
+nb_model.fit(X_train_tfidf, y_train)
+
+y_pred = nb_model.predict(X_test_tfidf)
+
+print('Accuracy:', accuracy_score(y_test, y_pred))
+print('Classification Report:\n', classification_report(y_test, y_pred))
+print('Confusion Matrix:\n', confusion_matrix(y_test, y_pred))
+
+joblib.dump(nb_model, 'spam_classifier_model.pkl')
+joblib.dump(tfidf_vectorizer, 'tfidf_vectorizer.pkl')
+
+nb_model = joblib.load('spam_classifier_model.pkl')
+tfidf_vectorizer = joblib.load('tfidf_vectorizer.pkl')
+
+# Example new message
+new_message = ["Congratulations! You've won a $1,000 Walmart gift card. Go to http://bit.ly/123456 to claim now."]
+
+new_message_preprocessed = [preprocess_text(message) for message in new_message]
+new_message_tfidf = tfidf_vectorizer.transform(new_message_preprocessed)
+
+# Predict
+prediction = nb_model.predict(new_message_tfidf)
+print('Prediction:', 'Spam' if prediction[0] else 'Ham')
